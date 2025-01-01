@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:math';
+import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 
@@ -12,6 +13,7 @@ import 'package:dnd_flutter/character_import.dart';
 import 'package:flutter/material.dart';
 import 'character.dart';
 import 'package:http/http.dart' as http;
+import 'dart:html' as html;
 
 void main() {
   runApp(MyApp());
@@ -23,6 +25,10 @@ class MyApp extends StatelessWidget {
 
   ///This is the root character list, loaded into from the java microservice
   var characters = <CharacterEntity>[];
+  var sessionId = "";
+  void SessionUpdate(String newSession){
+    sessionId = newSession;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,18 +38,18 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
         useMaterial3: true,
       ),
-      home: MyHomePage(title: '5e Battle Manager', characters: characters),
+      home: MyHomePage(title: '5e Battle Manager', characters: characters, sessionId: sessionId,sessionRefresh: SessionUpdate,),
     );
   }
 }
 
 ///The Homepage widget
 class MyHomePage extends StatefulWidget {
-  MyHomePage({super.key, required this.title, required this.characters});
+  MyHomePage({super.key, required this.title, required this.characters, required this.sessionId, required this.sessionRefresh});
   List<CharacterEntity> characters;
-
+  String sessionId;
   final String title;
-
+  Function(String) sessionRefresh;
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
@@ -75,8 +81,9 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<List<CharacterEntity>> fetchSession() async {
     List<CharacterEntity> toAdd = [];
     try {
+      Map<String,String> headers = {"sessionId":widget.sessionId};
       final response =
-          await http.get(Uri.parse('http://localhost:8080/getAll'));
+          await http.get(Uri.parse('http://localhost:8080/getAll'),headers: headers);
       if (response.statusCode == 200) {
         var decoded = jsonDecode(response.body);
         turnController.currentTurn = decoded["Turn"];
@@ -108,7 +115,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void stompSetup(StompFrame connectFrame) {
     debugPrint("Connected!");
     stompClient.subscribe(
-        destination: '/socket/update',
+        destination: '/socket/update/' + widget.sessionId,
         headers: {},
         callback: (frame) {
           // Received a frame for this subscription
@@ -118,11 +125,30 @@ class _MyHomePageState extends State<MyHomePage> {
         });
   }
 
+  void sessionSetup() async{
+    try {
+      final response =
+          await http.get(Uri.parse('http://localhost:8080/newSession'));
+      if (response.statusCode == 200) {
+        widget.sessionId = response.body;
+        widget.sessionRefresh(response.body);
+        print("New Session Id: " + response.body);
+        html.window.location.href = Uri.base.toString() + "?sessionId=" + response.body;
+      }
+    } catch (e) {}
+  }
   ///Init state, runs every state refresh
   @override
   void initState() {
     super.initState();
     //Stomp initial config
+    if(Uri.base.queryParameters["sessionId"] == null){
+      sessionSetup();
+    }
+    else {
+      widget.sessionId = Uri.base.queryParameters["sessionId"]!;
+      widget.sessionRefresh(Uri.base.queryParameters["sessionId"]!);
+    }
     stompClient = StompClient(
       config: StompConfig(
           url: 'ws://127.0.0.1:8080',
@@ -174,6 +200,7 @@ class _MyHomePageState extends State<MyHomePage> {
             characterEntity: widget.characters[i],
             backgroundColor: backgroundColor,
             isSelected: isSelected,
+            sessionId: widget.sessionId,
             key: Key(widget.characters[i].uuid));
 
         if (pastCurTurn) {
@@ -197,8 +224,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   ///Next turn method, calls next turn on microservice
   void _nextTurn() async {
+    Map<String,String> headers = {"sessionId":widget.sessionId};
     final response =
-        await http.post(Uri.parse('http://localhost:8080/nextTurn'));
+        await http.post(Uri.parse('http://localhost:8080/nextTurn'),headers: headers);
 
     setState(() {
       _stateRefresh();
@@ -214,6 +242,7 @@ class _MyHomePageState extends State<MyHomePage> {
         context,
         MaterialPageRoute(
             builder: (context) => CharacterImport(
+                  sessionId: widget.sessionId,
                   characters: widget.characters,
                   refreshPage: CharacterSync,
                 )));
@@ -263,9 +292,10 @@ class CharacterWidget extends StatefulWidget {
   final CharacterEntity characterEntity;
   final Color backgroundColor;
   bool isSelected;
-
+  String sessionId;
   CharacterWidget(
       {super.key,
+      required this.sessionId,
       required this.backgroundColor,
       required this.characterEntity,
       required this.isSelected});
@@ -277,7 +307,7 @@ class CharacterWidget extends StatefulWidget {
 class _CharacterWidgetState extends State<CharacterWidget> {
   final myController = TextEditingController();
   //Color backgroundColor = Colors.white;
-
+  
   MultiSelectController<Status> dropController = MultiSelectController();
   bool getSelected(DropdownItem<Status> item) {
     print("Blah ");
@@ -312,8 +342,10 @@ class _CharacterWidgetState extends State<CharacterWidget> {
   void _updateCharacter() async {
     try {
       debugPrint(widget.characterEntity.toJson().toString());
+      Map<String,String> headers = {"sessionId":widget.sessionId};
       final response = await http.post(
           Uri.parse('http://localhost:8080/updateCharacter'),
+          headers: headers,
           body: widget.characterEntity.toJson().toString());
       if (response.statusCode == 200) {}
       debugPrint("Not 200");

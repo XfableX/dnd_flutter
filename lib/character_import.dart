@@ -7,7 +7,8 @@ import 'package:stomp_dart_client/stomp_dart_client.dart';
 
 class CharacterImport extends StatefulWidget {
   final Function() refreshPage;
-  CharacterImport({required this.characters, required this.refreshPage});
+  String sessionId;
+  CharacterImport({required this.characters, required this.refreshPage, required this.sessionId});
   int selectedIndex = 0;
 
   @override
@@ -36,8 +37,9 @@ class _CharacterImportState extends State<CharacterImport> {
   Future<List<CharacterEntity>> fetchSession() async {
     List<CharacterEntity> toAdd = [];
     try {
+      Map<String,String> headers = {"sessionId":widget.sessionId};
       final response =
-          await http.get(Uri.parse('http://localhost:8080/getAll'));
+          await http.get(Uri.parse('http://localhost:8080/getAll'), headers: headers);
       if (response.statusCode == 200) {
         var decoded = jsonDecode(response.body);
 
@@ -97,8 +99,9 @@ class _CharacterImportState extends State<CharacterImport> {
 
 //Move functionality to Java
   _addCharacter() async {
+    Map<String,String> headers = {"sessionId":widget.sessionId};
     final response =
-        await http.post(Uri.parse('http://localhost:8080/addEmptyCharacter'));
+        await http.post(Uri.parse('http://localhost:8080/addEmptyCharacter'), headers: headers);
   }
 
   //Refreshes the Sidebar
@@ -107,6 +110,7 @@ class _CharacterImportState extends State<CharacterImport> {
       print("Editor refresh");
       widget.refreshPage();
       characters = widget.characters;
+      characters.sort((a, b) => a.characterName.compareTo(b.characterName));
       charNames = [];
       for (var i = 0; i < characters.length; i++) {
         charNames.add(SizedBox(
@@ -117,6 +121,7 @@ class _CharacterImportState extends State<CharacterImport> {
       }
       if (characters.length >= 1) {
         characterEditor = CharacterEditor(
+            sessionId: widget.sessionId,
             character: characters[widget.selectedIndex],
             refreshPage: ListStateRefresh);
         //for (var i = 0; i < characters.length; i++) {
@@ -201,9 +206,10 @@ class _CharacterImportState extends State<CharacterImport> {
 }
 
 class CharacterEditor extends StatefulWidget {
+  String sessionId;
   final Function() refreshPage;
   CharacterEditor(
-      {super.key, required this.character, required this.refreshPage});
+      {super.key, required this.character, required this.refreshPage, required this.sessionId});
   CharacterEntity character;
   final nameController = TextEditingController();
   final acController = TextEditingController();
@@ -304,8 +310,10 @@ class _CharacterEditorState extends State<CharacterEditor> {
     debugPrint(widget.character.toJson().toString());
     try {
       debugPrint(widget.character.toJson().toString());
+      Map<String,String> headers = {"sessionId":widget.sessionId};
       final response = await http.post(
           Uri.parse('http://localhost:8080/updateCharacter'),
+          headers: headers,
           body: widget.character.toJson().toString());
       debugPrint("No sex!!!");
       if (response.statusCode == 200) {
