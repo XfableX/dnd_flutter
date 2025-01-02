@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dnd_flutter/character.dart';
+import 'package:dnd_flutter/main.dart';
 import 'package:dnd_flutter/templates.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -46,7 +47,7 @@ class _CharacterImportState extends State<CharacterImport> {
         "sessionId": widget.sessionId,
         "token": widget.jwtToken
       };
-      final response = await http.get(Uri.parse('http://localhost:8080/getAll'),
+      final response = await http.get(Uri.parse(hostname + '/getAll'),
           headers: headers);
       if (response.statusCode == 200) {
         var decoded = jsonDecode(response.body);
@@ -111,7 +112,7 @@ class _CharacterImportState extends State<CharacterImport> {
       "token": widget.jwtToken
     };
     final response = await http.post(
-        Uri.parse('http://localhost:8080/addEmptyCharacter'),
+        Uri.parse(hostname + '/addEmptyCharacter'),
         headers: headers);
   }
 
@@ -234,7 +235,7 @@ class CharacterEditor extends StatefulWidget {
   final curHealthController = TextEditingController();
   final maxHealthController = TextEditingController();
   final initController = TextEditingController();
-
+  final ownerController = TextEditingController();
   final lvl1SpellSlots = TextEditingController();
   final lvl2SpellSlots = TextEditingController();
   final lvl3SpellSlots = TextEditingController();
@@ -246,6 +247,7 @@ class CharacterEditor extends StatefulWidget {
   final lvl9SpellSlots = TextEditingController();
 
   refreshTextField() {
+    ownerController.text = character.owner;
     nameController.text = character.characterName;
     acController.text = character.armorClass.toString();
     curHealthController.text = character.currentHealth.toString();
@@ -279,6 +281,10 @@ class _CharacterEditorState extends State<CharacterEditor> {
 
   //Updates local instance and pushes those changes up to java
   void _updateCharacter() async {
+    
+    
+    widget.character.owner = widget.ownerController.text;
+
     widget.character.characterName = widget.nameController.text;
     widget.character.armorClass = int.parse(widget.acController.text);
     widget.character.currentHealth = int.parse(widget.curHealthController.text);
@@ -333,7 +339,7 @@ class _CharacterEditorState extends State<CharacterEditor> {
         "token": widget.jwtToken
       };
       final response = await http.post(
-          Uri.parse('http://localhost:8080/updateCharacter'),
+          Uri.parse(hostname + '/updateCharacter'),
           headers: headers,
           body: widget.character.toJson().toString());
       debugPrint("No sex!!!");
@@ -393,6 +399,12 @@ class _CharacterEditorState extends State<CharacterEditor> {
                           hint: "Inititative...",
                           labelScale: labelScale,
                           controller: widget.initController),
+                      textFieldTemplate(
+                          fieldName: "Owner: ",
+                          fieldScale: fieldScale,
+                          hint: "Owner...",
+                          labelScale: labelScale,
+                          controller: widget.ownerController),
                       textFieldTemplate(
                           fieldName: "Level 1 spell slots: ",
                           fieldScale: fieldScale,

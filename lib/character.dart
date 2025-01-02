@@ -5,13 +5,14 @@ import 'package:json_annotation/json_annotation.dart';
 class CharacterEntity {
 
   CharacterEntity({required this.uuid,required this.characterName, required this.initiative, required this.armorClass, required this.maxHealth, required this.currentHealth, required this.concentrating, required this.reactionUsed});
-  CharacterEntity.JsonConstruct({required this.uuid,required this.characterName, required this.initiative, required this.armorClass, required this.maxHealth, required this.currentHealth, required this.concentrating, required this.reactionUsed, required this.condition, required this.savingThrowNeg, required this.savingThrowPos, required this.spellSlots, required this.status, required this.usedSpellSlots});
+  CharacterEntity.JsonConstruct({required this.uuid, required this.owner,required this.characterName, required this.initiative, required this.armorClass, required this.maxHealth, required this.currentHealth, required this.concentrating, required this.reactionUsed, required this.condition, required this.savingThrowNeg, required this.savingThrowPos, required this.spellSlots, required this.status, required this.usedSpellSlots});
 
   factory CharacterEntity.fromJson(Map<String, dynamic> json){
     print(json);
     return switch (json) {
       {
         'UUID' : var uuid,
+        'Owner' : var owner,
         'CurrentHealth': var currentHealth,
         'Condition': var condition,
         'Status':var status,
@@ -28,6 +29,7 @@ class CharacterEntity {
       } =>
         CharacterEntity.JsonConstruct(
           uuid: uuid,
+          owner: owner,
           characterName: characterName,
           condition: Condition.values.byName(condition),
           status: _convertToStatus(status),
@@ -50,6 +52,9 @@ class CharacterEntity {
     Map<String, dynamic> json = {};
     json['Name'] = characterName;
     json['UUID'] = uuid;
+    if(owner != ""){
+      json['Owner'] = owner;
+    }
     json['Initiative'] = initiative;
     json['ArmorClass'] = armorClass;
     json['MaxHealth'] = maxHealth;
@@ -75,6 +80,7 @@ class CharacterEntity {
   }
   String uuid;
   String characterName;
+  String owner = "";
   int initiative;
   int armorClass;
   int maxHealth;

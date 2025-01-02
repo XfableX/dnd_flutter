@@ -16,6 +16,9 @@ import 'character.dart';
 import 'package:http/http.dart' as http;
 import 'dart:html' as html;
 
+
+String hostname = "http://10.0.0.3:8080";
+
 void main() {
   runApp(MyApp());
 }
@@ -103,7 +106,7 @@ class _MyHomePageState extends State<MyHomePage> {
         "sessionId": widget.sessionId,
         "token": widget.jwtToken
       };
-      final response = await http.get(Uri.parse('http://localhost:8080/getAll'),
+      final response = await http.get(Uri.parse(hostname + '/getAll'),
           headers: headers);
       if (response.statusCode == 200) {
         var decoded = jsonDecode(response.body);
@@ -150,7 +153,7 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       Map<String, String> headers = {"token": widget.jwtToken};
       final response = await http
-          .get(Uri.parse('http://localhost:8080/newSession'), headers: headers);
+          .get(Uri.parse(hostname + '/newSession'), headers: headers);
       if (response.statusCode == 200) {
         _selectSession(response.body);
       }
@@ -234,7 +237,7 @@ class _MyHomePageState extends State<MyHomePage> {
       "token": widget.jwtToken
     };
     final response = await http
-        .post(Uri.parse('http://localhost:8080/nextTurn'), headers: headers);
+        .post(Uri.parse(hostname + '/nextTurn'), headers: headers);
 
     setState(() {
       _stateRefresh();
@@ -284,7 +287,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void _login() async {
     try {
       //Map<String,String> headers = {"sessionId":widget.sessionId};
-      final response = await http.get(Uri.parse('http://localhost:8080/login' +
+      final response = await http.get(Uri.parse(hostname + '/login' +
           '?username=' +
           usernameCtrl.text +
           '&password=' +
@@ -302,7 +305,7 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       //Map<String,String> headers = {"sessionId":widget.sessionId};
       final response = await http.get(Uri.parse(
-          'http://localhost:8080/createUser' +
+          hostname + '/createUser' +
               '?username=' +
               usernameCtrl.text +
               '&password=' +
@@ -316,10 +319,12 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void GetSessionList() async {
+
+    
     try {
       Map<String, String> headers = {"token": widget.jwtToken};
       final response = await http.get(
-          Uri.parse('http://localhost:8080/getUserSessions'),
+          Uri.parse(hostname + '/getUserSessions'),
           headers: headers);
       if (response.statusCode == 200) {
         String sessionRaw = response.body;
@@ -331,13 +336,33 @@ class _MyHomePageState extends State<MyHomePage> {
           SessionList.add(
               TextButton(onPressed: () => _selectSession(i), child: Text(i)));
         }
-        SessionList.add(
-            TextButton(onPressed: _sessionSetup, child: Text("New Session")));
+      
       }
     } catch (e) {
       print("Session broky");
     }
-
+    SessionList.add(Text("Joined Sessions: "));
+    try {
+      Map<String, String> headers = {"token": widget.jwtToken};
+      final response = await http.get(
+          Uri.parse(hostname + '/getUserJoinedSessions'),
+          headers: headers);
+      if (response.statusCode == 200) {
+        String sessionRaw = response.body;
+        print("SessionRaw: " + sessionRaw);
+        List<String> sessions = sessionRaw.split(",");
+        for (var i in sessions) {
+          print("Adding session");
+          SessionList.add(
+              TextButton(onPressed: () => _selectSession(i), child: Text(i)));
+        }
+        
+      }
+    } catch (e) {
+      print("Session broky");
+    }
+    SessionList.add(
+            TextButton(onPressed: _sessionSetup, child: Text("New Session")));
     setState(() {});
   }
 
@@ -487,7 +512,7 @@ class _CharacterWidgetState extends State<CharacterWidget> {
         "token": widget.jwtToken
       };
       final response = await http.post(
-          Uri.parse('http://localhost:8080/updateCharacter'),
+          Uri.parse(hostname + '/updateCharacter'),
           headers: headers,
           body: widget.characterEntity.toJson().toString());
       if (response.statusCode == 200) {}
@@ -756,26 +781,26 @@ class _CharacterWidgetState extends State<CharacterWidget> {
                   fieldContent: widget.characterEntity.initiative.toString(),
                   fieldName: "Initiative: ",
                   labelScale: labelScale),
-              labelTemplate(
+              widget.characterEntity.armorClass != -1 ?labelTemplate(
                   contentScale: contentScale,
                   fieldContent: widget.characterEntity.armorClass.toString(),
                   fieldName: "Armor Class: ",
-                  labelScale: labelScale),
-              labelTemplate(
+                  labelScale: labelScale): Center(),
+              widget.characterEntity.maxHealth != -1 ? labelTemplate(
                   contentScale: contentScale,
                   fieldContent:
                       widget.characterEntity.currentHealth.toString() +
                           "/" +
                           widget.characterEntity.maxHealth.toString(),
                   fieldName: "Health: ",
-                  labelScale: labelScale),
+                  labelScale: labelScale) : Center(),
               /*
 
                       Quick health adjust
 
 
                       */
-              TextField(
+              widget.characterEntity.maxHealth != -1 ? TextField(
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: "Increase/Decrease health by...",
@@ -784,8 +809,8 @@ class _CharacterWidgetState extends State<CharacterWidget> {
                 key: Key(widget.characterEntity.characterName +
                     "HealthBar" +
                     this.hashCode.toString()),
-              ),
-              TextButton(onPressed: healthIncrement, child: Text("Submit")),
+              ) : Center(),
+              widget.characterEntity.maxHealth != -1 ?TextButton(onPressed: healthIncrement, child: Text("Submit")): Center(),
               /*
 
 STATUS DROP DOWN
