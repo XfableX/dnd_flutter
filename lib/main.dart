@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 import 'package:collection/collection.dart';
+import 'package:dnd_flutter/templates.dart';
 import 'package:flutter/foundation.dart';
 
 //import 'dart:ffi';
@@ -26,7 +27,7 @@ class MyApp extends StatelessWidget {
   ///This is the root character list, loaded into from the java microservice
   var characters = <CharacterEntity>[];
   var sessionId = "";
-  void SessionUpdate(String newSession){
+  void SessionUpdate(String newSession) {
     sessionId = newSession;
   }
 
@@ -38,16 +39,27 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
         useMaterial3: true,
       ),
-      home: MyHomePage(title: '5e Battle Manager', characters: characters, sessionId: sessionId,sessionRefresh: SessionUpdate,),
+      home: MyHomePage(
+        title: '5e Battle Manager',
+        characters: characters,
+        sessionId: sessionId,
+        sessionRefresh: SessionUpdate,
+      ),
     );
   }
 }
 
 ///The Homepage widget
 class MyHomePage extends StatefulWidget {
-  MyHomePage({super.key, required this.title, required this.characters, required this.sessionId, required this.sessionRefresh});
+  MyHomePage(
+      {super.key,
+      required this.title,
+      required this.characters,
+      required this.sessionId,
+      required this.sessionRefresh});
   List<CharacterEntity> characters;
   String sessionId;
+  String jwtToken = "";
   final String title;
   Function(String) sessionRefresh;
   @override
@@ -77,13 +89,22 @@ class _MyHomePageState extends State<MyHomePage> {
   //The stomp client. This handles socket connections to the java microservice. Mainly used to do live updates from java side
   late StompClient stompClient;
 
+  TextEditingController usernameCtrl = new TextEditingController();
+  TextEditingController passwordCtrl = new TextEditingController();
+  double labelScale = 200;
+  double fieldScale = 600;
+  List<Widget> SessionList = [];
+
   ///Fetch session will query the java rest api for the current session and character information
   Future<List<CharacterEntity>> fetchSession() async {
     List<CharacterEntity> toAdd = [];
     try {
-      Map<String,String> headers = {"sessionId":widget.sessionId};
-      final response =
-          await http.get(Uri.parse('http://localhost:8080/getAll'),headers: headers);
+      Map<String, String> headers = {
+        "sessionId": widget.sessionId,
+        "token": widget.jwtToken
+      };
+      final response = await http.get(Uri.parse('http://localhost:8080/getAll'),
+          headers: headers);
       if (response.statusCode == 200) {
         var decoded = jsonDecode(response.body);
         turnController.currentTurn = decoded["Turn"];
@@ -100,7 +121,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   ///Fetches session and then refreshes the UI, kept as a seperate method so State can be independant of the session sync.
-  void CharacterSync() async {
+  void _characterSync() async {
     List<CharacterEntity> toAdd = await fetchSession();
     setState(() {
       widget.characters = [];
@@ -112,7 +133,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   ///Once STOMP connection is estabilished, this runs to subscribe to all endpoints. TO DO: make endpoint specific to session when sessions are implemented.
-  void stompSetup(StompFrame connectFrame) {
+  void _stompSetup(StompFrame connectFrame) {
     debugPrint("Connected!");
     stompClient.subscribe(
         destination: '/socket/update/' + widget.sessionId,
@@ -121,52 +142,35 @@ class _MyHomePageState extends State<MyHomePage> {
           // Received a frame for this subscription
           debugPrint(frame.body);
           debugPrint("BAH");
-          CharacterSync();
+          _characterSync();
         });
   }
 
-  void sessionSetup() async{
+  void _sessionSetup() async {
     try {
-      final response =
-          await http.get(Uri.parse('http://localhost:8080/newSession'));
+      Map<String, String> headers = {"token": widget.jwtToken};
+      final response = await http
+          .get(Uri.parse('http://localhost:8080/newSession'), headers: headers);
       if (response.statusCode == 200) {
-        widget.sessionId = response.body;
-        widget.sessionRefresh(response.body);
-        print("New Session Id: " + response.body);
-        html.window.location.href = Uri.base.toString() + "?sessionId=" + response.body;
+        _selectSession(response.body);
       }
     } catch (e) {}
+
+    setState(() {});
   }
-  ///Init state, runs every state refresh
+
+  ///Init state, runs once on first render
   @override
   void initState() {
     super.initState();
     //Stomp initial config
-    if(Uri.base.queryParameters["sessionId"] == null){
+    /*if(Uri.base.queryParameters["sessionId"] == null){
       sessionSetup();
     }
     else {
       widget.sessionId = Uri.base.queryParameters["sessionId"]!;
       widget.sessionRefresh(Uri.base.queryParameters["sessionId"]!);
-    }
-    stompClient = StompClient(
-      config: StompConfig(
-          url: 'ws://127.0.0.1:8080',
-          onConnect: stompSetup,
-          onWebSocketError: (e) => print("Sadge " + e.toString()),
-          onStompError: (d) => print('error stomp'),
-          onDisconnect: (f) => print('disconnected'),
-          onDebugMessage: (e) => print(e)),
-    );
-    stompClient.activate();
-
-    //Generate new selected key. Required to avoid strange behaviour with using same key
-    selectedKey = GlobalKey();
-    widget.characters.sort((a, b) => a.initiative.compareTo(b.initiative));
-
-    //runs session refresh and creates turn controller.
-    CharacterSync();
-    turnController = TurnController(characters: widget.characters);
+    }*/
   }
 
   ///State refresh generates all dynamic UI elements
@@ -197,6 +201,7 @@ class _MyHomePageState extends State<MyHomePage> {
           isSelected = true;
         }
         CharacterWidget newCard = new CharacterWidget(
+            jwtToken: widget.jwtToken,
             characterEntity: widget.characters[i],
             backgroundColor: backgroundColor,
             isSelected: isSelected,
@@ -224,15 +229,42 @@ class _MyHomePageState extends State<MyHomePage> {
 
   ///Next turn method, calls next turn on microservice
   void _nextTurn() async {
-    Map<String,String> headers = {"sessionId":widget.sessionId};
-    final response =
-        await http.post(Uri.parse('http://localhost:8080/nextTurn'),headers: headers);
+    Map<String, String> headers = {
+      "sessionId": widget.sessionId,
+      "token": widget.jwtToken
+    };
+    final response = await http
+        .post(Uri.parse('http://localhost:8080/nextTurn'), headers: headers);
 
     setState(() {
       _stateRefresh();
       //after state refresh, scroll to current turn
       Scrollable.ensureVisible(selectedKey.currentContext!,
           duration: Duration(milliseconds: 500));
+    });
+  }
+
+  void _selectSession(String id) {
+    widget.sessionId = id;
+    setState(() {
+      stompClient = StompClient(
+        config: StompConfig(
+            url: 'ws://127.0.0.1:8080',
+            onConnect: _stompSetup,
+            onWebSocketError: (e) => print("Sadge " + e.toString()),
+            onStompError: (d) => print('error stomp'),
+            onDisconnect: (f) => print('disconnected'),
+            onDebugMessage: (e) => print(e)),
+      );
+      stompClient.activate();
+
+      //Generate new selected key. Required to avoid strange behaviour with using same key
+      selectedKey = GlobalKey();
+      widget.characters.sort((a, b) => a.initiative.compareTo(b.initiative));
+
+      //runs session refresh and creates turn controller.
+      _characterSync();
+      turnController = TurnController(characters: widget.characters);
     });
   }
 
@@ -244,8 +276,83 @@ class _MyHomePageState extends State<MyHomePage> {
             builder: (context) => CharacterImport(
                   sessionId: widget.sessionId,
                   characters: widget.characters,
-                  refreshPage: CharacterSync,
+                  refreshPage: _characterSync,
+                  jwtToken: widget.jwtToken,
                 )));
+  }
+
+  void _login() async {
+    try {
+      //Map<String,String> headers = {"sessionId":widget.sessionId};
+      final response = await http.get(Uri.parse('http://localhost:8080/login' +
+          '?username=' +
+          usernameCtrl.text +
+          '&password=' +
+          passwordCtrl.text));
+      if (response.statusCode == 200) {
+        widget.jwtToken = response.body;
+      }
+    } catch (e) {}
+
+    GetSessionList();
+    setState(() {});
+  }
+
+  void _signUp() async {
+    try {
+      //Map<String,String> headers = {"sessionId":widget.sessionId};
+      final response = await http.get(Uri.parse(
+          'http://localhost:8080/createUser' +
+              '?username=' +
+              usernameCtrl.text +
+              '&password=' +
+              passwordCtrl.text));
+      if (response.statusCode == 200) {
+        widget.jwtToken = response.body;
+      }
+    } catch (e) {}
+    GetSessionList();
+    setState(() {});
+  }
+
+  void GetSessionList() async {
+    try {
+      Map<String, String> headers = {"token": widget.jwtToken};
+      final response = await http.get(
+          Uri.parse('http://localhost:8080/getUserSessions'),
+          headers: headers);
+      if (response.statusCode == 200) {
+        String sessionRaw = response.body;
+        print("SessionRaw: " + sessionRaw);
+        List<String> sessions = sessionRaw.split(",");
+        SessionList = [];
+        for (var i in sessions) {
+          print("Adding session");
+          SessionList.add(
+              TextButton(onPressed: () => _selectSession(i), child: Text(i)));
+        }
+        SessionList.add(
+            TextButton(onPressed: _sessionSetup, child: Text("New Session")));
+      }
+    } catch (e) {
+      print("Session broky");
+    }
+
+    setState(() {});
+  }
+
+  void _logOut() {
+    widget.jwtToken = "";
+    _exitSession();
+    setState(() {});
+  }
+
+  void _exitSession() {
+    widget.sessionId = "";
+    cards = <CharacterWidget>[];
+    precards = <CharacterWidget>[];
+    postcards = <CharacterWidget>[];
+    setState(() {});
   }
 
   //All UI definition
@@ -260,9 +367,16 @@ class _MyHomePageState extends State<MyHomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                widget.jwtToken != ""
+                    ? TextButton(onPressed: _logOut, child: Text("Logout"))
+                    : Center(),
+                widget.sessionId != ""
+                    ? TextButton(
+                        onPressed: _exitSession, child: Text("Exit Session"))
+                    : Center(),
                 TextButton(
                     onPressed: _characterEditNav,
-                    child: Text("Edit Characters.."))
+                    child: Text("Edit Characters"))
               ],
             ),
           ])),
@@ -274,7 +388,32 @@ class _MyHomePageState extends State<MyHomePage> {
           key: Key("mainScrollView"),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: cards,
+            children: widget.jwtToken != ""
+                ? (widget.sessionId != "" ? cards : SessionList)
+                : [
+                    Card(
+                      child: Column(
+                        children: [
+                          textFieldTemplate(
+                            controller: usernameCtrl,
+                            fieldName: "Username",
+                            fieldScale: fieldScale,
+                            labelScale: labelScale,
+                            hint: "Username",
+                          ),
+                          textFieldTemplate(
+                            controller: passwordCtrl,
+                            fieldName: "Password",
+                            fieldScale: fieldScale,
+                            labelScale: labelScale,
+                            hint: "Password",
+                          ),
+                          TextButton(onPressed: _signUp, child: Text("SignUp")),
+                          TextButton(onPressed: _login, child: Text("Login"))
+                        ],
+                      ),
+                    )
+                  ],
           ),
         ),
       ),
@@ -291,6 +430,7 @@ class _MyHomePageState extends State<MyHomePage> {
 class CharacterWidget extends StatefulWidget {
   final CharacterEntity characterEntity;
   final Color backgroundColor;
+  String jwtToken;
   bool isSelected;
   String sessionId;
   CharacterWidget(
@@ -298,7 +438,8 @@ class CharacterWidget extends StatefulWidget {
       required this.sessionId,
       required this.backgroundColor,
       required this.characterEntity,
-      required this.isSelected});
+      required this.isSelected,
+      required this.jwtToken});
 
   @override
   State<CharacterWidget> createState() => _CharacterWidgetState();
@@ -307,7 +448,7 @@ class CharacterWidget extends StatefulWidget {
 class _CharacterWidgetState extends State<CharacterWidget> {
   final myController = TextEditingController();
   //Color backgroundColor = Colors.white;
-  
+
   MultiSelectController<Status> dropController = MultiSelectController();
   bool getSelected(DropdownItem<Status> item) {
     print("Blah ");
@@ -335,14 +476,16 @@ class _CharacterWidgetState extends State<CharacterWidget> {
     DropdownItem(label: "exhaustion", value: Status.exhaustion),
   ];
 
-
   List<Widget> spellColumn = [];
   List<Widget> throwColumn = [];
 
   void _updateCharacter() async {
     try {
       debugPrint(widget.characterEntity.toJson().toString());
-      Map<String,String> headers = {"sessionId":widget.sessionId};
+      Map<String, String> headers = {
+        "sessionId": widget.sessionId,
+        "token": widget.jwtToken
+      };
       final response = await http.post(
           Uri.parse('http://localhost:8080/updateCharacter'),
           headers: headers,
@@ -385,19 +528,18 @@ class _CharacterWidgetState extends State<CharacterWidget> {
   }
 
   void _updateStatus(List<Status> values) {
+    List<Status> toAdd = [];
+    for (var i in values) {
+      toAdd.add(i);
+    }
 
-      List<Status> toAdd = [];
-      for (var i in values) {
-        toAdd.add(i);
-      }
-
-      if(!listEquals(widget.characterEntity.status,toAdd)){
+    if (!listEquals(widget.characterEntity.status, toAdd)) {
       widget.characterEntity.status = toAdd;
       print("Updating status");
       print(toAdd);
 
-    _updateCharacter();
-      }
+      _updateCharacter();
+    }
   }
 
   void updateCondition(Condition? value) async {
@@ -451,7 +593,6 @@ class _CharacterWidgetState extends State<CharacterWidget> {
   }
 
   void initSpellSlots() {
-    
     spellColumn = [];
     for (var i in widget.characterEntity.spellSlots.entries) {
       if (i.value != 0) {
@@ -566,9 +707,8 @@ class _CharacterWidgetState extends State<CharacterWidget> {
     super.initState();
     debugPrint("Init");
     initSpellSlots();
-    for(var i in items){
-        i.selected = getSelected(i);
-
+    for (var i in items) {
+      i.selected = getSelected(i);
     }
     dropController.selectWhere(getSelected);
     print("DEBUG SESLECT");
@@ -657,7 +797,6 @@ STATUS DROP DOWN
                 onSelectionChange: _updateStatus,
                 controller: dropController,
                 dropdownItemDecoration: DropdownItemDecoration(
-                  
                   selectedIcon:
                       const Icon(Icons.check_box, color: Colors.green),
                   disabledIcon: Icon(Icons.lock, color: Colors.grey.shade300),
@@ -766,49 +905,3 @@ class TurnController {
     }
   }
 }
-
-class labelTemplate extends StatelessWidget {
-  labelTemplate(
-      {super.key,
-      required this.contentScale,
-      required this.fieldContent,
-      required this.fieldName,
-      required this.labelScale});
-
-  String fieldName;
-  String fieldContent;
-  double labelScale;
-  double contentScale;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      SizedBox(
-          width: labelScale,
-          child: DefaultTextStyle(
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: EdgeInsets.all(15),
-                  child: Text(fieldName),
-                ),
-              ))),
-      SizedBox(
-          width: contentScale,
-          child: DefaultTextStyle(
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: EdgeInsets.all(15),
-                  child: Text(fieldContent),
-                ),
-              ))),
-    ]);
-  }
-}
-
-

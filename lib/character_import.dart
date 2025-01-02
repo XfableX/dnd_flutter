@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dnd_flutter/character.dart';
+import 'package:dnd_flutter/templates.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:stomp_dart_client/stomp_dart_client.dart';
@@ -8,9 +9,13 @@ import 'package:stomp_dart_client/stomp_dart_client.dart';
 class CharacterImport extends StatefulWidget {
   final Function() refreshPage;
   String sessionId;
-  CharacterImport({required this.characters, required this.refreshPage, required this.sessionId});
+  CharacterImport(
+      {required this.characters,
+      required this.refreshPage,
+      required this.sessionId,
+      required this.jwtToken});
   int selectedIndex = 0;
-
+  String jwtToken;
   @override
   State<CharacterImport> createState() => _CharacterImportState();
 
@@ -24,7 +29,7 @@ class _CharacterImportState extends State<CharacterImport> {
   void stompSetup(StompFrame connectFrame) {
     debugPrint("Connected!");
     stompClient.subscribe(
-        destination: '/socket/update',
+        destination: '/socket/update/' + widget.sessionId,
         headers: {},
         callback: (frame) {
           // Received a frame for this subscription
@@ -37,9 +42,12 @@ class _CharacterImportState extends State<CharacterImport> {
   Future<List<CharacterEntity>> fetchSession() async {
     List<CharacterEntity> toAdd = [];
     try {
-      Map<String,String> headers = {"sessionId":widget.sessionId};
-      final response =
-          await http.get(Uri.parse('http://localhost:8080/getAll'), headers: headers);
+      Map<String, String> headers = {
+        "sessionId": widget.sessionId,
+        "token": widget.jwtToken
+      };
+      final response = await http.get(Uri.parse('http://localhost:8080/getAll'),
+          headers: headers);
       if (response.statusCode == 200) {
         var decoded = jsonDecode(response.body);
 
@@ -85,7 +93,6 @@ class _CharacterImportState extends State<CharacterImport> {
     characters = widget.characters;
     ListStateRefresh();
     //Creates character
-    
   }
 
   characterSelect(int index) {
@@ -99,9 +106,13 @@ class _CharacterImportState extends State<CharacterImport> {
 
 //Move functionality to Java
   _addCharacter() async {
-    Map<String,String> headers = {"sessionId":widget.sessionId};
-    final response =
-        await http.post(Uri.parse('http://localhost:8080/addEmptyCharacter'), headers: headers);
+    Map<String, String> headers = {
+      "sessionId": widget.sessionId,
+      "token": widget.jwtToken
+    };
+    final response = await http.post(
+        Uri.parse('http://localhost:8080/addEmptyCharacter'),
+        headers: headers);
   }
 
   //Refreshes the Sidebar
@@ -121,17 +132,16 @@ class _CharacterImportState extends State<CharacterImport> {
       }
       if (characters.length >= 1) {
         characterEditor = CharacterEditor(
+            jwtToken: widget.jwtToken,
             sessionId: widget.sessionId,
             character: characters[widget.selectedIndex],
             refreshPage: ListStateRefresh);
         //for (var i = 0; i < characters.length; i++) {
-         // charNames.add(TextButton(
-           //   onPressed: () => characterSelect(i),
-              //child: Text(characters[i].characterName)));
-              characterEditor.refreshTextField();
-        
+        // charNames.add(TextButton(
+        //   onPressed: () => characterSelect(i),
+        //child: Text(characters[i].characterName)));
+        characterEditor.refreshTextField();
       }
-      
     });
   }
 
@@ -175,22 +185,25 @@ class _CharacterImportState extends State<CharacterImport> {
                   ),
                 )),
             Container(
-              child: (charNames.isNotEmpty) ? characterEditor : SizedBox(
-            width: 1000,
-            height: double.maxFinite,
-            child: Container(
-                width: double.maxFinite,
-                height: double.maxFinite,
-                color: Colors.white,
-                padding: EdgeInsets.all(16),
-                child:DefaultTextStyle(
-                      style: const TextStyle(
-                          fontSize: 32, fontWeight: FontWeight.bold),
-                      child: Center(
-                          child: Padding(
-                        child: Text("No characters yet! Try clicking the plus button at the bottom right"),
-                        padding: EdgeInsets.all(20),
-                      ))))),
+              child: (charNames.isNotEmpty)
+                  ? characterEditor
+                  : SizedBox(
+                      width: 1000,
+                      height: double.maxFinite,
+                      child: Container(
+                          width: double.maxFinite,
+                          height: double.maxFinite,
+                          color: Colors.white,
+                          padding: EdgeInsets.all(16),
+                          child: DefaultTextStyle(
+                              style: const TextStyle(
+                                  fontSize: 32, fontWeight: FontWeight.bold),
+                              child: Center(
+                                  child: Padding(
+                                child: Text(
+                                    "No characters yet! Try clicking the plus button at the bottom right"),
+                                padding: EdgeInsets.all(20),
+                              ))))),
             )
           ],
         ),
@@ -207,9 +220,14 @@ class _CharacterImportState extends State<CharacterImport> {
 
 class CharacterEditor extends StatefulWidget {
   String sessionId;
+  String jwtToken;
   final Function() refreshPage;
   CharacterEditor(
-      {super.key, required this.character, required this.refreshPage, required this.sessionId});
+      {super.key,
+      required this.character,
+      required this.refreshPage,
+      required this.sessionId,
+      required this.jwtToken});
   CharacterEntity character;
   final nameController = TextEditingController();
   final acController = TextEditingController();
@@ -310,7 +328,10 @@ class _CharacterEditorState extends State<CharacterEditor> {
     debugPrint(widget.character.toJson().toString());
     try {
       debugPrint(widget.character.toJson().toString());
-      Map<String,String> headers = {"sessionId":widget.sessionId};
+      Map<String, String> headers = {
+        "sessionId": widget.sessionId,
+        "token": widget.jwtToken
+      };
       final response = await http.post(
           Uri.parse('http://localhost:8080/updateCharacter'),
           headers: headers,
@@ -431,50 +452,5 @@ class _CharacterEditorState extends State<CharacterEditor> {
                     ],
                   ),
                 ))));
-  }
-}
-
-class textFieldTemplate extends StatelessWidget {
-  textFieldTemplate(
-      {super.key,
-      required this.fieldName,
-      required this.fieldScale,
-      required this.hint,
-      required this.labelScale,
-      required this.controller});
-
-  String fieldName;
-  String hint;
-  double labelScale;
-  double fieldScale;
-  TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      SizedBox(
-          width: labelScale,
-          child: DefaultTextStyle(
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: EdgeInsets.all(15),
-                  child: Text(fieldName),
-                ),
-              ))),
-      SizedBox(
-        width: fieldScale,
-        child: TextField(
-          decoration: InputDecoration(
-            border: OutlineInputBorder(),
-            hintText: hint,
-          ),
-          controller: controller,
-          // key: Key("nameBox"),
-        ),
-      )
-    ]);
   }
 }
