@@ -16,8 +16,10 @@ import 'character.dart';
 import 'package:http/http.dart' as http;
 import 'dart:html' as html;
 
-
-String hostname = "http://dnd.local:8080";
+const webHost = String.fromEnvironment('WEBHOST', defaultValue: '127.0.0.1');
+    const webPort = String.fromEnvironment('WEBPORT', defaultValue: '8080');
+    const fullURI = "ws://$webHost:$webPort";
+String hostname = "http://$webHost:$webPort";
 
 void main() {
   runApp(MyApp());
@@ -249,10 +251,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _selectSession(String id) {
     widget.sessionId = id;
+    const webHost = String.fromEnvironment('WEBHOST', defaultValue: '127.0.0.1');
+    const webPort = String.fromEnvironment('WEBPORT', defaultValue: '8080');
+    const fullURI = "ws://$webHost:$webPort";
     setState(() {
       stompClient = StompClient(
         config: StompConfig(
-            url: 'ws://dnd.local:8080',
+            url: fullURI,
             onConnect: _stompSetup,
             onWebSocketError: (e) => print("Sadge " + e.toString()),
             onStompError: (d) => print('error stomp'),

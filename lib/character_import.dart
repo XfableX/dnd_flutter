@@ -77,9 +77,12 @@ class _CharacterImportState extends State<CharacterImport> {
   @override
   void initState() {
     super.initState();
+    const webHost = String.fromEnvironment('WEBHOST', defaultValue: '127.0.0.1');
+    const webPort = String.fromEnvironment('WEBPORT', defaultValue: '8080');
+    const fullURI = "ws://$webHost:$webPort";
     stompClient = StompClient(
       config: StompConfig(
-          url: 'ws://dnd.local:8080',
+          url: fullURI,
           onConnect: stompSetup,
           //stompConnectHeaders: {'Authorization': '$token'},
           // webSocketConnectHeaders: {'Authorization': '$token'},
