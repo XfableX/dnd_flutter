@@ -17,7 +17,7 @@ import 'package:http/http.dart' as http;
 import 'dart:html' as html;
 
 
-String hostname = "http://{IP}:8080";
+String hostname = "http://127.0.0.1:8080";
 
 void main() {
   runApp(MyApp());
