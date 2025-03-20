@@ -79,7 +79,7 @@ class _CharacterImportState extends State<CharacterImport> {
     super.initState();
     stompClient = StompClient(
       config: StompConfig(
-          url: 'ws://127.0.0.1:8080',
+          url: 'ws://dnd.local:8080',
           onConnect: stompSetup,
           //stompConnectHeaders: {'Authorization': '$token'},
           // webSocketConnectHeaders: {'Authorization': '$token'},

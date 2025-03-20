@@ -17,7 +17,7 @@ import 'package:http/http.dart' as http;
 import 'dart:html' as html;
 
 
-String hostname = "http://10.0.0.3:8080";
+String hostname = "http://dnd.local:8080";
 
 void main() {
   runApp(MyApp());
@@ -252,7 +252,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       stompClient = StompClient(
         config: StompConfig(
-            url: 'ws://127.0.0.1:8080',
+            url: 'ws://dnd.local:8080',
             onConnect: _stompSetup,
             onWebSocketError: (e) => print("Sadge " + e.toString()),
             onStompError: (d) => print('error stomp'),
