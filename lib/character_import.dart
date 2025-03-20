@@ -280,6 +280,81 @@ class _CharacterEditorState extends State<CharacterEditor> {
   double fieldScale = 600;
 
   //Updates local instance and pushes those changes up to java
+  void _removeCharacter() async {
+    
+    
+    widget.character.owner = widget.ownerController.text;
+
+    widget.character.characterName = widget.nameController.text;
+    widget.character.armorClass = int.parse(widget.acController.text);
+    widget.character.currentHealth = int.parse(widget.curHealthController.text);
+    widget.character.maxHealth = int.parse(widget.maxHealthController.text);
+    widget.character.initiative = int.parse(widget.initController.text);
+    debugPrint(widget.character.toJson().toString());
+    try {
+      widget.character.spellSlots
+          .update("1", (current) => int.parse(widget.lvl1SpellSlots.text));
+      widget.character.spellSlots
+          .update("2", (current) => int.parse(widget.lvl2SpellSlots.text));
+      widget.character.spellSlots
+          .update("3", (current) => int.parse(widget.lvl3SpellSlots.text));
+      widget.character.spellSlots
+          .update("4", (current) => int.parse(widget.lvl4SpellSlots.text));
+      widget.character.spellSlots
+          .update("5", (current) => int.parse(widget.lvl5SpellSlots.text));
+      widget.character.spellSlots
+          .update("6", (current) => int.parse(widget.lvl6SpellSlots.text));
+      widget.character.spellSlots
+          .update("7", (current) => int.parse(widget.lvl7SpellSlots.text));
+      widget.character.spellSlots
+          .update("8", (current) => int.parse(widget.lvl8SpellSlots.text));
+      widget.character.spellSlots
+          .update("9", (current) => int.parse(widget.lvl9SpellSlots.text));
+      widget.character.usedSpellSlots
+          .update("1", (current) => int.parse(widget.lvl1SpellSlots.text));
+      widget.character.usedSpellSlots
+          .update("2", (current) => int.parse(widget.lvl2SpellSlots.text));
+      widget.character.usedSpellSlots
+          .update("3", (current) => int.parse(widget.lvl3SpellSlots.text));
+      widget.character.usedSpellSlots
+          .update("4", (current) => int.parse(widget.lvl4SpellSlots.text));
+      widget.character.usedSpellSlots
+          .update("5", (current) => int.parse(widget.lvl5SpellSlots.text));
+      widget.character.usedSpellSlots
+          .update("6", (current) => int.parse(widget.lvl6SpellSlots.text));
+      widget.character.usedSpellSlots
+          .update("7", (current) => int.parse(widget.lvl7SpellSlots.text));
+      widget.character.usedSpellSlots
+          .update("8", (current) => int.parse(widget.lvl8SpellSlots.text));
+      widget.character.usedSpellSlots
+          .update("9", (current) => int.parse(widget.lvl9SpellSlots.text));
+    } catch (e) {
+      debugPrint("Fail :( ${e}");
+    }
+    debugPrint(widget.character.toJson().toString());
+    try {
+      debugPrint(widget.character.toJson().toString());
+      Map<String, String> headers = {
+        "sessionId": widget.sessionId,
+        "token": widget.jwtToken
+      };
+      final response = await http.post(
+          Uri.parse(hostname + '/removeCharacter'),
+          headers: headers,
+          body: widget.character.toJson().toString());
+      debugPrint("No sex!!!");
+      if (response.statusCode == 200) {
+        debugPrint("Sex?");
+      }
+      debugPrint("Not 200");
+    } catch (e) {
+      debugPrint("Fail :( ${e}");
+    }
+    debugPrint("Sadgher");
+    widget.refreshPage();
+  }
+
+  //Updates local instance and pushes those changes up to java
   void _updateCharacter() async {
     
     
@@ -460,7 +535,9 @@ class _CharacterEditorState extends State<CharacterEditor> {
                           labelScale: labelScale,
                           controller: widget.lvl9SpellSlots),
                       TextButton(
-                          onPressed: _updateCharacter, child: Text("Update"))
+                          onPressed: _updateCharacter, child: Text("Update")),
+                          TextButton(
+                          onPressed: _removeCharacter, child: Text("Delete Character"))
                     ],
                   ),
                 ))));
