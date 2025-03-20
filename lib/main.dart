@@ -344,7 +344,7 @@ class _MyHomePageState extends State<MyHomePage> {
       
       }
     } catch (e) {
-      print("Session broky");
+      print("Session broky $hostname");
     }
     SessionList.add(Text("Joined Sessions: "));
     try {
@@ -364,7 +364,7 @@ class _MyHomePageState extends State<MyHomePage> {
         
       }
     } catch (e) {
-      print("Session broky");
+      print("Session broky $hostname");
     }
     SessionList.add(
             TextButton(onPressed: _sessionSetup, child: Text("New Session")));
